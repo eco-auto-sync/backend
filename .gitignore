@@ -39,3 +39,4 @@ out/
 ### Infrastructure ###
 # Local development infrastructure
 **.env**
+.DS_Store
