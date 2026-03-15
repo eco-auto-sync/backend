@@ -35,3 +35,8 @@ out/
 
 ### VS Code ###
 .vscode/
+
+### Infrastructure ###
+# Local development infrastructure
+**.env**
+.DS_Store
