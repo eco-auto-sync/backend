@@ -74,7 +74,7 @@ EcoSync Backend는 **Hexagonal Architecture** (육각형 아키텍처)를 따릅
 **역할:** 비즈니스 도메인의 핵심 개념을 표현하는 순수 Java 모듈
 
 **포함 항목:**
-- 도메인 엔티티 (`Country`, `Indicator`, `Stock`, `Subscription` 등)
+- 도메인 엔티티 (`User`, `UserInterest`, `EconomicEvent` 등)
 - 값 객체 (Value Objects)
 - 도메인 예외 (`DomainException` 등)
 
@@ -354,7 +354,7 @@ eco-sync/backend (루트)
 ```
 주요 구성:
 - src/main/java/com/ecosync/domain/
-  └── (Country, Indicator, Stock, Subscription 등 도메인 엔티티)
+  └── (User, UserInterest, EconomicEvent 등 도메인 엔티티)
 - src/test/java/com/ecosync/domain/
   └── (도메인 엔티티 단위 테스트)
 ```
@@ -853,20 +853,35 @@ spring-boot-starter-web = { group = "org.springframework.boot", name = "spring-b
 
 ```java
 @Entity
-@Table(name = "countries")
+@Table(name = "users")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class Country {
+public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 2)
-    private String code;
+    @Column(nullable = false, unique = true)
+    private String email;
+
+    @Column(nullable = false, unique = true, length = 36)
+    private String calendarToken;
+
+    @Column(nullable = true)
+    private String createdBy;
 
     @Column(nullable = false)
-    private String name;
+    private LocalDateTime createdAt;
+
+    @Column(nullable = true)
+    private String updatedBy;
+
+    @Column(nullable = false)
+    private LocalDateTime updatedAt;
+
+    @Column(nullable = true)
+    private LocalDateTime deletedAt;
 }
 ```
 
@@ -875,20 +890,21 @@ public class Country {
 ```java
 // Infrastructure 모듈의 Output Port 구현
 @Repository
-public class CountryJpaAdapter implements CountryPort {
+public class UserJpaAdapter implements UserPort {
 
-    private final CountryJpaRepository repository;
+    private final UserJpaRepository repository;
 
     @Override
-    public Country save(Country country) {
-        return repository.save(country);
+    public User save(User user) {
+        return repository.save(user);
     }
 }
 
 // Spring Data JPA Interface
 @Repository
-interface CountryJpaRepository extends JpaRepository<Country, Long> {
-    Optional<Country> findByCode(String code);
+interface UserJpaRepository extends JpaRepository<User, Long> {
+    Optional<User> findByEmail(String email);
+    Optional<User> findByCalendarToken(String calendarToken);
 }
 ```
 
@@ -896,23 +912,23 @@ interface CountryJpaRepository extends JpaRepository<Country, Long> {
 
 ```java
 @Mapper(componentModel = "spring")
-public interface CountryMapper {
-    CountryResponseDto toDto(Country country);
-    Country toDomain(CountryRequestDto dto);
+public interface UserMapper {
+    UserResponseDto toDto(User user);
+    User toDomain(UserRequestDto dto);
 
-    List<CountryResponseDto> toDtoList(List<Country> countries);
+    List<UserResponseDto> toDtoList(List<User> users);
 }
 
 // 사용
 @Service
 @RequiredArgsConstructor
-public class CountryService {
-    private final CountryMapper mapper;
-    private final CountryPort port;
+public class UserService {
+    private final UserMapper mapper;
+    private final UserPort port;
 
-    public CountryResponseDto getCountry(Long id) {
-        Country country = port.findById(id);
-        return mapper.toDto(country);
+    public UserResponseDto getUser(Long id) {
+        User user = port.findById(id);
+        return mapper.toDto(user);
     }
 }
 ```
@@ -924,17 +940,17 @@ public class CountryService {
 @RequiredArgsConstructor
 public class IcsGeneratorService {
 
-    public String generateIcs(List<Event> events) {
+    public String generateIcs(List<EconomicEvent> events) {
         Calendar calendar = new Calendar();
         calendar.add(new ProdId("-//EcoSync//NONSGML v1.0//EN"));
         calendar.add(Version.VERSION_2_0);
         calendar.add(CalScale.GREGORIAN);
 
-        for (Event event : events) {
+        for (EconomicEvent event : events) {
             VEvent vevent = new VEvent();
             vevent.add(new Summary(event.getTitle()));
-            vevent.add(new DtStart(event.getStart()));
-            vevent.add(new DtEnd(event.getEnd()));
+            vevent.add(new DtStart(new DateTime(event.getEventDatetime())));
+            vevent.add(new Description(event.getDescription()));
             calendar.add(vevent);
         }
 
@@ -1024,20 +1040,21 @@ public class SecurityConfig {
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-public class Country {
+public class User {
     @Id
     private Long id;
-    private String code;
+    private String email;
+    private String calendarToken;
 }
 
 // Service에는 @RequiredArgsConstructor 사용 (생성자 주입)
 @Service
 @RequiredArgsConstructor
-public class CountryService {
-    private final CountryPort port;
+public class UserService {
+    private final UserPort port;
 
-    public Country save(Country country) {
-        return port.save(country);
+    public User save(User user) {
+        return port.save(user);
     }
 }
 ```
