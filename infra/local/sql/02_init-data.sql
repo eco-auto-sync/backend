@@ -1,75 +1,42 @@
--- EcoSync Database Initial Data
--- Sample data for local development and testing
+-- EcoSync Initial Data
+-- Sample data for local development environment
+-- Based on eco-auto-sync ERD Design
 
 -- =====================================================
--- Sample Countries
+-- Sample Users
 -- =====================================================
-INSERT INTO countries (code, name) VALUES
-('KR', '대한민국'),
-('US', '미국'),
-('JP', '일본'),
-('CN', '중국'),
-('IN', '인도'),
-('GB', '영국'),
-('DE', '독일'),
-('FR', '프랑스');
+INSERT INTO users (email, calendar_token) VALUES
+('user1@example.com', '550e8400-e29b-41d4-a716-446655440001'),
+('user2@example.com', '550e8400-e29b-41d4-a716-446655440002'),
+('user3@example.com', '550e8400-e29b-41d4-a716-446655440003');
 
 -- =====================================================
--- Sample Indicators
+-- Sample User Interests
 -- =====================================================
-INSERT INTO indicators (name, description) VALUES
-('CO2_EMISSIONS', '이산화탄소 배출량 (백만 톤)'),
-('GDP', '국내총생산 (10억 달러)'),
-('POPULATION', '인구 (백만명)'),
-('RENEWABLE_ENERGY', '재생에너지 비율 (%)'),
-('FOREST_AREA', '산림면적 (천 헥타르)'),
-('PM25', '미세먼지 (µg/m³)'),
-('TEMPERATURE', '평균 기온 (°C)'),
-('PRECIPITATION', '연강수량 (mm)');
+INSERT INTO user_interests (user_id, interest_type, interest_value) VALUES
+-- User 1: 미국과 한국 경제 지표 구독
+(1, 'COUNTRY', 'US'),
+(1, 'COUNTRY', 'KR'),
+(1, 'IMPORTANCE', 'HIGH'),
+-- User 2: 애플 및 삼성 기업실적 구독
+(2, 'TICKER', 'AAPL'),
+(2, 'TICKER', '005930'),
+(2, 'IMPORTANCE', 'HIGH'),
+(2, 'IMPORTANCE', 'MID'),
+-- User 3: 전체 중요도 높은 이벤트 구독
+(3, 'IMPORTANCE', 'HIGH');
 
 -- =====================================================
--- Sample Stock Data (2024년 기준)
+-- Sample Economic Events
 -- =====================================================
--- Korea Data
-INSERT INTO stocks (country_id, indicator_id, value, stock_date) VALUES
-(1, 1, 651.3, '2024-01-01'),  -- KR, CO2_EMISSIONS
-(1, 2, 1784.5, '2024-01-01'), -- KR, GDP
-(1, 3, 51.6, '2024-01-01'),   -- KR, POPULATION
-(1, 4, 9.7, '2024-01-01'),    -- KR, RENEWABLE_ENERGY
-(1, 5, 6294, '2024-01-01'),   -- KR, FOREST_AREA
-(1, 6, 26.5, '2024-01-01'),   -- KR, PM25
-(1, 7, 12.5, '2024-01-01'),   -- KR, TEMPERATURE
-(1, 8, 1577, '2024-01-01');   -- KR, PRECIPITATION
-
--- USA Data
-INSERT INTO stocks (country_id, indicator_id, value, stock_date) VALUES
-(2, 1, 5066.8, '2024-01-01'),  -- US, CO2_EMISSIONS
-(2, 2, 27359.4, '2024-01-01'), -- US, GDP
-(2, 3, 339.9, '2024-01-01'),   -- US, POPULATION
-(2, 4, 14.2, '2024-01-01'),    -- US, RENEWABLE_ENERGY
-(2, 5, 309461, '2024-01-01'),  -- US, FOREST_AREA
-(2, 6, 9.8, '2024-01-01'),     -- US, PM25
-(2, 7, 11.9, '2024-01-01'),    -- US, TEMPERATURE
-(2, 8, 713, '2024-01-01');     -- US, PRECIPITATION
-
--- Japan Data
-INSERT INTO stocks (country_id, indicator_id, value, stock_date) VALUES
-(3, 1, 1050.2, '2024-01-01'),  -- JP, CO2_EMISSIONS
-(3, 2, 4101.9, '2024-01-01'),  -- JP, GDP
-(3, 3, 123.3, '2024-01-01'),   -- JP, POPULATION
-(3, 4, 3.6, '2024-01-01'),     -- JP, RENEWABLE_ENERGY
-(3, 5, 24878, '2024-01-01'),   -- JP, FOREST_AREA
-(3, 6, 16.2, '2024-01-01'),    -- JP, PM25
-(3, 7, 17.3, '2024-01-01'),    -- JP, TEMPERATURE
-(3, 8, 1668, '2024-01-01');    -- JP, PRECIPITATION
-
--- =====================================================
--- Sample Subscriptions
--- =====================================================
-INSERT INTO subscriptions (user_id, country_id) VALUES
-(1, 1),  -- User 1 subscribes to Korea
-(1, 2),  -- User 1 subscribes to USA
-(2, 1),  -- User 2 subscribes to Korea
-(2, 3),  -- User 2 subscribes to Japan
-(3, 2),  -- User 3 subscribes to USA
-(3, 4);  -- User 3 subscribes to China
+INSERT INTO economic_events (uid, title, event_datetime, country_code, category, ticker, importance, description) VALUES
+('eco-event-001', '미국 CPI 발표 (2월)', '2026-03-10 14:30:00', 'US', 'INDICATOR', NULL, 'HIGH', '예상치: 2.4% YoY | 이전치: 2.6% YoY'),
+('eco-event-002', '미국 실업률 발표 (2월)', '2026-03-06 13:30:00', 'US', 'INDICATOR', NULL, 'HIGH', '예상치: 4.0% | 이전치: 3.9%'),
+('eco-event-003', '한국 수출입 통계 (2월)', '2026-03-01 10:00:00', 'KR', 'INDICATOR', NULL, 'MID', '전월 대비 변화율 예상'),
+('eco-event-004', 'Apple Q2 2026 실적 발표', '2026-04-28 16:30:00', 'US', 'EARNINGS', 'AAPL', 'HIGH', '매출, 영업이익, EPS 공시'),
+('eco-event-005', '삼성전자 2026년 1분기 실적', '2026-04-09 15:00:00', 'KR', 'EARNINGS', '005930', 'HIGH', '반도체 부문 수익률 기대'),
+('eco-event-006', 'NVIDIA Q1 2026 실적 발표', '2026-05-22 16:30:00', 'US', 'EARNINGS', 'NVDA', 'HIGH', 'AI칩 수요 동향 주목'),
+('eco-event-007', '미국 연방준비제도 정책결정회의', '2026-03-19 18:00:00', 'US', 'MONETARY_POLICY', NULL, 'HIGH', '기준금리 결정 및 성명문 공시'),
+('eco-event-008', '유럽중앙은행 정책결정회의', '2026-03-12 13:45:00', 'EU', 'MONETARY_POLICY', NULL, 'HIGH', '기준금리 결정'),
+('eco-event-009', '한국 생산자물가지수 (2월)', '2026-03-04 10:00:00', 'KR', 'INDICATOR', NULL, 'MID', '전월 대비 변화율'),
+('eco-event-010', '일본 수출 (2월)', '2026-03-13 08:50:00', 'JP', 'INDICATOR', NULL, 'MID', '전년 대비 증감률 예상: -2.5%');
