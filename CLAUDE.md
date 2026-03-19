@@ -74,7 +74,7 @@ EcoSync Backend는 **Hexagonal Architecture** (육각형 아키텍처)를 따릅
 **역할:** 비즈니스 도메인의 핵심 개념을 표현하는 순수 Java 모듈
 
 **포함 항목:**
-- 도메인 엔티티 (`Country`, `Indicator`, `Stock`, `Subscription` 등)
+- 도메인 엔티티 (`User`, `UserInterest`, `EconomicEvent` 등)
 - 값 객체 (Value Objects)
 - 도메인 예외 (`DomainException` 등)
 
@@ -354,7 +354,7 @@ eco-sync/backend (루트)
 ```
 주요 구성:
 - src/main/java/com/ecosync/domain/
-  └── (Country, Indicator, Stock, Subscription 등 도메인 엔티티)
+  └── (User, UserInterest, EconomicEvent 등 도메인 엔티티)
 - src/test/java/com/ecosync/domain/
   └── (도메인 엔티티 단위 테스트)
 ```
@@ -853,20 +853,35 @@ spring-boot-starter-web = { group = "org.springframework.boot", name = "spring-b
 
 ```java
 @Entity
-@Table(name = "countries")
+@Table(name = "users")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class Country {
+public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 2)
-    private String code;
+    @Column(nullable = false, unique = true)
+    private String email;
+
+    @Column(nullable = false, unique = true, length = 36)
+    private String calendarToken;
+
+    @Column(nullable = true)
+    private String createdBy;
 
     @Column(nullable = false)
-    private String name;
+    private LocalDateTime createdAt;
+
+    @Column(nullable = true)
+    private String updatedBy;
+
+    @Column(nullable = false)
+    private LocalDateTime updatedAt;
+
+    @Column(nullable = true)
+    private LocalDateTime deletedAt;
 }
 ```
 
@@ -875,20 +890,21 @@ public class Country {
 ```java
 // Infrastructure 모듈의 Output Port 구현
 @Repository
-public class CountryJpaAdapter implements CountryPort {
+public class UserJpaAdapter implements UserPort {
 
-    private final CountryJpaRepository repository;
+    private final UserJpaRepository repository;
 
     @Override
-    public Country save(Country country) {
-        return repository.save(country);
+    public User save(User user) {
+        return repository.save(user);
     }
 }
 
 // Spring Data JPA Interface
 @Repository
-interface CountryJpaRepository extends JpaRepository<Country, Long> {
-    Optional<Country> findByCode(String code);
+interface UserJpaRepository extends JpaRepository<User, Long> {
+    Optional<User> findByEmail(String email);
+    Optional<User> findByCalendarToken(String calendarToken);
 }
 ```
 
@@ -896,23 +912,23 @@ interface CountryJpaRepository extends JpaRepository<Country, Long> {
 
 ```java
 @Mapper(componentModel = "spring")
-public interface CountryMapper {
-    CountryResponseDto toDto(Country country);
-    Country toDomain(CountryRequestDto dto);
+public interface UserMapper {
+    UserResponseDto toDto(User user);
+    User toDomain(UserRequestDto dto);
 
-    List<CountryResponseDto> toDtoList(List<Country> countries);
+    List<UserResponseDto> toDtoList(List<User> users);
 }
 
 // 사용
 @Service
 @RequiredArgsConstructor
-public class CountryService {
-    private final CountryMapper mapper;
-    private final CountryPort port;
+public class UserService {
+    private final UserMapper mapper;
+    private final UserPort port;
 
-    public CountryResponseDto getCountry(Long id) {
-        Country country = port.findById(id);
-        return mapper.toDto(country);
+    public UserResponseDto getUser(Long id) {
+        User user = port.findById(id);
+        return mapper.toDto(user);
     }
 }
 ```
@@ -924,17 +940,17 @@ public class CountryService {
 @RequiredArgsConstructor
 public class IcsGeneratorService {
 
-    public String generateIcs(List<Event> events) {
+    public String generateIcs(List<EconomicEvent> events) {
         Calendar calendar = new Calendar();
         calendar.add(new ProdId("-//EcoSync//NONSGML v1.0//EN"));
         calendar.add(Version.VERSION_2_0);
         calendar.add(CalScale.GREGORIAN);
 
-        for (Event event : events) {
+        for (EconomicEvent event : events) {
             VEvent vevent = new VEvent();
             vevent.add(new Summary(event.getTitle()));
-            vevent.add(new DtStart(event.getStart()));
-            vevent.add(new DtEnd(event.getEnd()));
+            vevent.add(new DtStart(new DateTime(event.getEventDatetime())));
+            vevent.add(new Description(event.getDescription()));
             calendar.add(vevent);
         }
 
@@ -1024,20 +1040,21 @@ public class SecurityConfig {
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-public class Country {
+public class User {
     @Id
     private Long id;
-    private String code;
+    private String email;
+    private String calendarToken;
 }
 
 // Service에는 @RequiredArgsConstructor 사용 (생성자 주입)
 @Service
 @RequiredArgsConstructor
-public class CountryService {
-    private final CountryPort port;
+public class UserService {
+    private final UserPort port;
 
-    public Country save(Country country) {
-        return port.save(country);
+    public User save(User user) {
+        return port.save(user);
     }
 }
 ```
@@ -1208,7 +1225,216 @@ api, batch → application → domain
 
 ---
 
-## 14. 추가 참고 자료 및 링크
+## 14. Git 컨벤션
+
+### 브랜치 전략
+
+```
+main (프로덕션)
+  ↑
+  └── dev (개발 통합 브랜치)
+        ↑
+        ├── feature/TSK-* (기능 개발)
+        ├── bugfix/TSK-* (버그 수정)
+        ├── chore/TSK-* (유지보수)
+        └── docs/TSK-* (문서화)
+```
+
+**브랜치 명명 규칙:**
+- `feature/TSK-123-description`: 새 기능 (예: `feature/TSK-8-db-schema-setup`)
+- `bugfix/TSK-123-description`: 버그 수정 (예: `bugfix/TSK-15-charset-issue`)
+- `chore/TSK-123-description`: 리팩토링, 의존성 업데이트 등 (예: `chore/TSK-20-update-gradle`)
+- `docs/TSK-123-description`: 문서화 (예: `docs/TSK-5-add-api-guide`)
+
+### 커밋 메시지 형식
+
+**Conventional Commits 기반:**
+
+```
+[TYPE-TICKET] 제목
+
+본문 (선택사항)
+
+Footer (선택사항)
+```
+
+**TYPE 종류:**
+- `feat`: 새로운 기능
+- `fix`: 버그 수정
+- `docs`: 문서화
+- `style`: 코드 스타일 변경 (포맷팅, 세미콜론 등)
+- `refactor`: 코드 리팩토링
+- `perf`: 성능 최적화
+- `test`: 테스트 추가/수정
+- `chore`: 빌드, 의존성, 도구 설정 변경
+- `infra`: 인프라/배포 관련
+
+**예시:**
+
+```
+[feat-TSK-8] 데이터베이스 스키마 설정
+
+eco-sync-backend 초기 설정:
+- Docker MySQL 환경 구성
+- 3개 테이블 생성 (users, user_interests, economic_events)
+- UTF-8MB4 charset 설정
+
+Fixes #8
+```
+
+```
+[fix-TSK-15] MySQL 한글 데이터 깨짐 현상 해결
+
+my.cnf 설정 파일 추가로 전역 charset 설정
+- 기존 임시 SQL 설정 제거
+- Docker Compose에 my.cnf 마운트 설정
+
+Fixes #15
+```
+
+```
+[refactor-TSK-10] DDL에서 FK 제약 제거
+
+성능 최적화를 위해 user_interests → users FK 제거
+관계는 애플리케이션 레벨에서 관리
+
+Relates to #10
+```
+
+### Pull Request (PR) 템플릿
+
+```markdown
+## 📝 설명
+[변경사항에 대한 간단한 설명]
+
+## 🎯 이슈
+Fixes #[ISSUE_NUMBER]
+
+## 📋 변경 사항
+- [ ] 기능 추가
+- [ ] 버그 수정
+- [ ] 문서 수정
+- [ ] 기타: ___________
+
+## 🔍 상세 내용
+[자세한 설명, 왜 이런 변경이 필요했는지, 어떤 접근 방식을 선택했는지]
+
+## ✅ 테스트
+- [ ] 로컬 환경에서 테스트 완료
+- [ ] 관련 테스트 추가/수정
+
+## 📸 스크린샷 (필요시)
+[스크린샷 또는 데모 URL]
+
+## 🚀 배포 시 주의사항
+[배포 시 특별히 고려해야 할 사항]
+```
+
+### Squash Merge 정책
+
+**main 브랜치 머지:**
+```bash
+git checkout main
+git pull origin main
+git merge --squash feature/TSK-123-description
+git commit -m "[feat-TSK-123] 기능 설명
+
+상세한 설명을 여기 작성합니다.
+
+Fixes #123"
+git push origin main
+```
+
+**Squash 커밋 메시지:**
+- 전체 변경사항을 한 줄로 요약
+- 본문에 주요 변경 내용 기술
+- Issue 번호 참고 (Fixes #123 또는 Relates to #123)
+
+### Git 커밋 체크리스트
+
+PR/커밋 전 확인사항:
+- [ ] 커밋 메시지가 Conventional Commits 형식인가?
+- [ ] 이슈 번호가 포함되어 있는가?
+- [ ] 한 커밋에 한 가지 변경사항만 포함되어 있는가?
+- [ ] 테스트를 실행했는가?
+- [ ] 불필요한 파일(`.DS_Store`, `*.class`, `.env`)을 커밋하지 않았는가?
+- [ ] 커밋 메시지에 한글이 올바르게 인코딩되었는가?
+
+### 자동화된 커밋 메시지 생성 (선택)
+
+Claude Code에서 커밋 시 자동 생성되는 메시지 형식:
+```
+[TYPE-TSK-NUMBER] 간단한 설명
+
+상세 내용
+
+Co-Authored-By: Claude [Model] <noreply@anthropic.com>
+```
+
+### 커밋 그룹핑 규칙 (필수)
+
+**비슷한 변경사항끼리 함께 커밋하세요.**
+
+#### 1️⃣ 데이터베이스/인프라 커밋
+**함께 커밋할 파일:**
+- `infra/local/sql/*.sql` (DDL, 초기 데이터)
+- `infra/local/docker-compose.yaml`
+- `infra/local/my.cnf`
+
+**예시:**
+```
+[infra-TSK-2] 데이터베이스 스키마 및 환경 설정
+
+- DDL: 3개 테이블 생성 (users, user_interests, economic_events)
+- 메타필드: created_by, created_at, updated_by, updated_at, deleted_at 추가
+- my.cnf: UTF-8MB4 charset 설정
+- docker-compose: my.cnf 마운트 추가
+- 초기 데이터: 샘플 사용자 및 경제 일정 로드
+
+Closes #2
+```
+
+#### 2️⃣ 문서/가이드 커밋
+**함께 커밋할 파일:**
+- `CLAUDE.md` (개발 가이드)
+- `README.md`
+- `docs/**`
+
+**예시:**
+```
+[docs-TSK-5] Git 컨벤션 및 커밋 가이드라인 작성
+
+- 브랜치 전략 및 명명 규칙 정의
+- Conventional Commits 형식 가이드
+- PR 템플릿 및 커밋 체크리스트 추가
+- 커밋 그룹핑 규칙 정의
+
+Closes #5
+```
+
+#### 3️⃣ 기능 구현 커밋
+**함께 커밋할 파일:**
+- `src/main/java/**` (기능 코드)
+- `src/test/java/**` (관련 테스트)
+
+**원칙:**
+> 한 커밋에는 **한 가지 기능**만 포함하세요.
+
+#### ❌ 피해야 할 패턴
+
+```
+❌ 여러 주제를 한 커밋에 포함
+[feat-TSK-20] 사용자 API + Docker 설정 + 문서화
+
+✅ 주제별로 분리
+[feat-TSK-20] 사용자 조회 API 구현
+[infra-TSK-21] Docker MySQL 환경 설정
+[docs-TSK-22] API 사용 가이드 문서화
+```
+
+---
+
+## 15. 추가 참고 자료 및 링크
 
 ### 프로젝트 관련 문서
 

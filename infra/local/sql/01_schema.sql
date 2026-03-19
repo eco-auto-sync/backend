@@ -1,126 +1,54 @@
 -- EcoSync Database Schema
 -- Created for local development environment
+-- Based on eco-auto-sync ERD Design
 
 -- =====================================================
--- Countries Table
+-- Users Table
 -- =====================================================
-CREATE TABLE IF NOT EXISTS countries (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '국가 ID',
-    code VARCHAR(2) NOT NULL UNIQUE COMMENT '국가 코드 (ISO 3166-1 alpha-2)',
-    name VARCHAR(100) NOT NULL COMMENT '국가명',
+CREATE TABLE IF NOT EXISTS users (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '사용자 ID',
+    email VARCHAR(255) NOT NULL UNIQUE COMMENT '사용자 이메일',
+    calendar_token VARCHAR(36) NOT NULL UNIQUE COMMENT 'iCal 고유 토큰 (UUID)',
+    created_by VARCHAR(255) COMMENT '생성자 (email 또는 user_id)',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '생성 일시',
+    updated_by VARCHAR(255) COMMENT '수정자 (email 또는 user_id)',
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '수정 일시',
-    INDEX idx_code (code)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='국가 정보';
+    deleted_at TIMESTAMP NULL COMMENT '삭제 일시 (소프트 딜리트)'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='사용자 정보';
 
 -- =====================================================
--- Indicators Table
+-- User Interests Table
 -- =====================================================
-CREATE TABLE IF NOT EXISTS indicators (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '지표 ID',
-    name VARCHAR(100) NOT NULL UNIQUE COMMENT '지표명',
-    description VARCHAR(500) COMMENT '지표 설명',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '생성 일시',
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '수정 일시'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='환경/경제 지표';
-
--- =====================================================
--- Stocks Table
--- =====================================================
-CREATE TABLE IF NOT EXISTS stocks (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '데이터 ID',
-    country_id BIGINT NOT NULL COMMENT '국가 ID',
-    indicator_id BIGINT NOT NULL COMMENT '지표 ID',
-    value DECIMAL(15, 4) NOT NULL COMMENT '지표 값',
-    stock_date DATE NOT NULL COMMENT '데이터 기준 일자',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '생성 일시',
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '수정 일시',
-    FOREIGN KEY (country_id) REFERENCES countries(id) ON DELETE CASCADE,
-    FOREIGN KEY (indicator_id) REFERENCES indicators(id) ON DELETE CASCADE,
-    UNIQUE KEY uk_country_indicator_date (country_id, indicator_id, stock_date),
-    INDEX idx_stock_date (stock_date),
-    INDEX idx_country_id (country_id),
-    INDEX idx_indicator_id (indicator_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='국가별 지표 데이터';
-
--- =====================================================
--- Subscriptions Table
--- =====================================================
-CREATE TABLE IF NOT EXISTS subscriptions (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '구독 ID',
+CREATE TABLE IF NOT EXISTS user_interests (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '사용자 관심사 ID',
     user_id BIGINT NOT NULL COMMENT '사용자 ID',
-    country_id BIGINT NOT NULL COMMENT '국가 ID',
+    interest_type VARCHAR(50) NOT NULL COMMENT '설정 타입 (COUNTRY, TICKER, IMPORTANCE)',
+    interest_value VARCHAR(100) NOT NULL COMMENT '설정 값 (예: US, NVDA, HIGH)',
+    created_by VARCHAR(255) COMMENT '생성자 (email 또는 user_id)',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '생성 일시',
+    updated_by VARCHAR(255) COMMENT '수정자 (email 또는 user_id)',
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '수정 일시',
-    FOREIGN KEY (country_id) REFERENCES countries(id) ON DELETE CASCADE,
-    UNIQUE KEY uk_user_country (user_id, country_id),
-    INDEX idx_user_id (user_id),
-    INDEX idx_country_id (country_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='사용자 구독 정보';
+    deleted_at TIMESTAMP NULL COMMENT '삭제 일시 (소프트 딜리트)',
+    UNIQUE KEY uk_user_interest_type_value (user_id, interest_type, interest_value)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='사용자 구독 설정';
 
 -- =====================================================
--- SPRING_BATCH Tables (for Batch Processing)
+-- Economic Events Table
 -- =====================================================
-CREATE TABLE IF NOT EXISTS BATCH_JOB_INSTANCE (
-    JOB_INSTANCE_ID BIGINT NOT NULL,
-    VERSION BIGINT,
-    JOB_NAME VARCHAR(100) NOT NULL,
-    JOB_KEY VARCHAR(32) NOT NULL,
-    CONSTRAINT BATCH_JOB_INSTANCE_PK PRIMARY KEY (JOB_INSTANCE_ID),
-    CONSTRAINT BATCH_JOB_INSTANCE_UN UNIQUE (JOB_NAME, JOB_KEY)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Spring Batch Job Instance';
-
-CREATE TABLE IF NOT EXISTS BATCH_JOB_EXECUTION (
-    JOB_EXECUTION_ID BIGINT NOT NULL,
-    VERSION BIGINT,
-    JOB_INSTANCE_ID BIGINT NOT NULL,
-    CREATE_TIME DATETIME(6) NOT NULL,
-    START_TIME DATETIME(6),
-    END_TIME DATETIME(6),
-    STATUS VARCHAR(10),
-    EXIT_CODE VARCHAR(2500),
-    EXIT_MESSAGE VARCHAR(2500),
-    LAST_UPDATED DATETIME(6),
-    CONSTRAINT BATCH_JOB_EXECUTION_PK PRIMARY KEY (JOB_EXECUTION_ID),
-    CONSTRAINT BATCH_JOB_EXECUTION_FK FOREIGN KEY (JOB_INSTANCE_ID) REFERENCES BATCH_JOB_INSTANCE(JOB_INSTANCE_ID)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Spring Batch Job Execution';
-
-CREATE TABLE IF NOT EXISTS BATCH_JOB_EXECUTION_CONTEXT (
-    JOB_EXECUTION_ID BIGINT NOT NULL,
-    SHORT_CONTEXT VARCHAR(2500) NOT NULL,
-    SERIALIZED_CONTEXT LONGTEXT,
-    CONSTRAINT BATCH_JOB_EXECUTION_CONTEXT_PK PRIMARY KEY (JOB_EXECUTION_ID),
-    CONSTRAINT BATCH_JOB_EXECUTION_CONTEXT_FK FOREIGN KEY (JOB_EXECUTION_ID) REFERENCES BATCH_JOB_EXECUTION(JOB_EXECUTION_ID)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Spring Batch Job Execution Context';
-
-CREATE TABLE IF NOT EXISTS BATCH_STEP_EXECUTION (
-    STEP_EXECUTION_ID BIGINT NOT NULL,
-    VERSION BIGINT NOT NULL,
-    STEP_NAME VARCHAR(100) NOT NULL,
-    JOB_EXECUTION_ID BIGINT NOT NULL,
-    CREATE_TIME DATETIME(6) NOT NULL,
-    START_TIME DATETIME(6),
-    END_TIME DATETIME(6),
-    STATUS VARCHAR(10),
-    COMMIT_COUNT BIGINT,
-    READ_COUNT BIGINT,
-    FILTER_COUNT BIGINT,
-    WRITE_COUNT BIGINT,
-    READ_SKIP_COUNT BIGINT,
-    WRITE_SKIP_COUNT BIGINT,
-    PROCESS_SKIP_COUNT BIGINT,
-    ROLLBACK_COUNT BIGINT,
-    EXIT_CODE VARCHAR(2500),
-    EXIT_MESSAGE VARCHAR(2500),
-    LAST_UPDATED DATETIME(6),
-    CONSTRAINT BATCH_STEP_EXECUTION_PK PRIMARY KEY (STEP_EXECUTION_ID),
-    CONSTRAINT BATCH_STEP_EXECUTION_FK FOREIGN KEY (JOB_EXECUTION_ID) REFERENCES BATCH_JOB_EXECUTION(JOB_EXECUTION_ID)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Spring Batch Step Execution';
-
-CREATE TABLE IF NOT EXISTS BATCH_STEP_EXECUTION_CONTEXT (
-    STEP_EXECUTION_ID BIGINT NOT NULL,
-    SHORT_CONTEXT VARCHAR(2500) NOT NULL,
-    SERIALIZED_CONTEXT LONGTEXT,
-    CONSTRAINT BATCH_STEP_EXECUTION_CONTEXT_PK PRIMARY KEY (STEP_EXECUTION_ID),
-    CONSTRAINT BATCH_STEP_EXECUTION_CONTEXT_FK FOREIGN KEY (STEP_EXECUTION_ID) REFERENCES BATCH_STEP_EXECUTION(STEP_EXECUTION_ID)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Spring Batch Step Execution Context';
+CREATE TABLE IF NOT EXISTS economic_events (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '경제 일정 ID',
+    uid VARCHAR(255) NOT NULL UNIQUE COMMENT 'iCal 고유 식별자 (원천 데이터의 고유 ID)',
+    title VARCHAR(255) NOT NULL COMMENT '일정 제목 (예: 미국 CPI 발표)',
+    event_datetime DATETIME NOT NULL COMMENT '일정 일시 (UTC 기준)',
+    country_code VARCHAR(10) COMMENT '국가 코드 (예: KR, US)',
+    category VARCHAR(50) COMMENT '카테고리 (예: INDICATOR, EARNINGS)',
+    ticker VARCHAR(50) COMMENT '종목 코드 (예: AAPL, 005930)',
+    importance VARCHAR(20) COMMENT '중요도 (LOW, MID, HIGH)',
+    description LONGTEXT COMMENT '상세 내용 (예상치, 이전치 등)',
+    created_by VARCHAR(255) COMMENT '생성자 (email 또는 user_id)',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '생성 일시',
+    updated_by VARCHAR(255) COMMENT '수정자 (email 또는 user_id)',
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '수정 일시',
+    deleted_at TIMESTAMP NULL COMMENT '삭제 일시 (소프트 딜리트)',
+    UNIQUE KEY uk_uid (uid)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='경제 일정 마스터 테이블';
